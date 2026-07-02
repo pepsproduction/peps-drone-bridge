@@ -12,7 +12,7 @@
 
 ระบบจะติดตั้ง dependency, ดาวน์โหลด MediaMTX, build, เปิด local server และเปิด browser ให้เอง
 
-ถ้าเครื่องยังไม่มี Node.js ระบบจะเปิดหน้า download ให้ก่อน ให้ติดตั้ง Node.js แล้วกด `PEPS-LIVE-START.cmd` อีกครั้ง
+ถ้าเครื่องยังไม่มี Node.js หรือเวอร์ชันต่ำกว่า `22.12` ระบบจะเปิดหน้า download ให้ก่อน ให้ติดตั้ง Node.js แล้วกด `PEPS-LIVE-START.cmd` อีกครั้ง
 
 ไฟล์กดใช้งาน:
 
@@ -32,7 +32,7 @@ docs/QUICK_START_WINDOWS.md
 ## สิ่งที่ต้องติดตั้ง
 
 - Windows 10 หรือ Windows 11
-- Node.js 22 ขึ้นไป
+- Node.js 22.12 ขึ้นไป
 - MediaMTX runtime (`mediamtx.exe`)
 - OBS สำหรับรับภาพ RTMP
 - ffmpeg เฉพาะกรณีต้องการรัน bridge test ด้วย test pattern

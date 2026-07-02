@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, "..");
 const configDir = path.join(root, "config");
 const logsDir = path.join(root, "logs");
 const pidFile = path.join(configDir, "server.pid");
+const setupLogFile = path.join(logsDir, "windows-launcher-setup.log");
 const webUrl = "http://127.0.0.1:19555";
 const healthUrl = `${webUrl}/api/health`;
 
@@ -18,17 +19,50 @@ function log(message) {
   console.log(`[PEPS LIVE] ${message}`);
 }
 
+function appendSetupLog(message) {
+  fs.appendFileSync(setupLogFile, message, "utf8");
+}
+
+function openSetupLog() {
+  if (process.platform === "win32" && fs.existsSync(setupLogFile)) {
+    spawn("notepad.exe", [setupLogFile], {
+      detached: true,
+      stdio: "ignore",
+      windowsHide: false
+    }).unref();
+  }
+}
+
+function lastLines(text, count = 30) {
+  return text.split(/\r?\n/).filter(Boolean).slice(-count).join("\n");
+}
+
 function run(command, args, label) {
   log(label);
+  appendSetupLog(`\n\n[${new Date().toISOString()}] ${label}\n> ${command} ${args.join(" ")}\n`);
   const result = spawnSync(command, args, {
     cwd: root,
-    stdio: "inherit",
+    encoding: "utf8",
+    maxBuffer: 20 * 1024 * 1024,
+    stdio: ["ignore", "pipe", "pipe"],
     shell: false,
     windowsHide: false
   });
 
+  if (result.stdout) {
+    process.stdout.write(result.stdout);
+    appendSetupLog(result.stdout);
+  }
+
+  if (result.stderr) {
+    process.stderr.write(result.stderr);
+    appendSetupLog(result.stderr);
+  }
+
   if (result.status !== 0) {
-    throw new Error(`${label} failed`);
+    const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
+    const tail = lastLines(output);
+    throw new Error(`${label} failed. See ${setupLogFile}${tail ? `\n\nLast output:\n${tail}` : ""}`);
   }
 }
 
@@ -131,6 +165,9 @@ function startServer() {
 
 async function main() {
   ensureDirs();
+  appendSetupLog(`\n\n========== PEPS LIVE START ${new Date().toISOString()} ==========\n`);
+  appendSetupLog(`Node.js ${process.version}\n`);
+  appendSetupLog(`Project: ${root}\n`);
 
   if (await healthOk()) {
     log("Server is already running");
@@ -155,6 +192,9 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(`[PEPS LIVE] ${error instanceof Error ? error.message : error}`);
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`[PEPS LIVE] ${message}`);
+  appendSetupLog(`\n[${new Date().toISOString()}] ERROR\n${message}\n`);
+  openSetupLog();
   process.exitCode = 1;
 });
