@@ -9,6 +9,7 @@ const pidFile = path.join(configDir, "server.pid");
 const setupLogFile = path.join(logsDir, "windows-launcher-setup.log");
 const webUrl = "http://127.0.0.1:19555";
 const healthUrl = `${webUrl}/api/health`;
+let cachedNpmCommand;
 
 function ensureDirs() {
   fs.mkdirSync(configDir, { recursive: true });
@@ -39,10 +40,19 @@ function lastLines(text, count = 30) {
 
 function run(command, args, label) {
   log(label);
-  appendSetupLog(`\n\n[${new Date().toISOString()}] ${label}\n> ${command} ${args.join(" ")}\n`);
-  const result = spawnSync(command, args, {
+  const displayCommand = Array.isArray(command) ? command.join(" ") : command;
+  appendSetupLog(`\n\n[${new Date().toISOString()}] ${label}\n> ${displayCommand} ${args.join(" ")}\n`);
+  const executable = Array.isArray(command) ? command[0] : command;
+  const commandArgs = Array.isArray(command) ? command.slice(1).concat(args) : args;
+  const result = spawnSync(executable, commandArgs, {
     cwd: root,
     encoding: "utf8",
+    env: {
+      ...process.env,
+      NO_COLOR: "1",
+      FORCE_COLOR: "0",
+      npm_config_color: "false"
+    },
     maxBuffer: 20 * 1024 * 1024,
     stdio: ["ignore", "pipe", "pipe"],
     shell: false,
@@ -59,10 +69,15 @@ function run(command, args, label) {
     appendSetupLog(result.stderr);
   }
 
+  if (result.error) {
+    appendSetupLog(`\nSpawn error: ${result.error.message}\n`);
+    throw new Error(`${label} failed before command output started: ${result.error.message}. See ${setupLogFile}`);
+  }
+
   if (result.status !== 0) {
     const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
     const tail = lastLines(output);
-    throw new Error(`${label} failed. See ${setupLogFile}${tail ? `\n\nLast output:\n${tail}` : ""}`);
+    throw new Error(`${label} failed with exit code ${result.status}. See ${setupLogFile}${tail ? `\n\nLast output:\n${tail}` : ""}`);
   }
 }
 
@@ -97,8 +112,55 @@ function openBrowser() {
   }).unref();
 }
 
+function commandWorks(command, args) {
+  const executable = Array.isArray(command) ? command[0] : command;
+  const commandArgs = Array.isArray(command) ? command.slice(1).concat(args) : args;
+  const result = spawnSync(executable, commandArgs, {
+    cwd: root,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true
+  });
+  return !result.error && result.status === 0;
+}
+
 function npmCmd() {
-  return process.platform === "win32" ? "npm.cmd" : "npm";
+  if (cachedNpmCommand) {
+    return cachedNpmCommand;
+  }
+
+  if (process.platform !== "win32") {
+    cachedNpmCommand = "npm";
+    return cachedNpmCommand;
+  }
+
+  const nodeDirNpm = path.join(path.dirname(process.execPath), "npm.cmd");
+  const candidates = [
+    nodeDirNpm,
+    "npm.cmd",
+    ["cmd.exe", "/d", "/s", "/c", "npm"]
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      if (commandWorks(candidate, ["--version"])) {
+        cachedNpmCommand = candidate;
+        return cachedNpmCommand;
+      }
+      continue;
+    }
+
+    if ((path.isAbsolute(candidate) && !fs.existsSync(candidate))) {
+      continue;
+    }
+
+    if (commandWorks(candidate, ["--version"])) {
+      cachedNpmCommand = candidate;
+      return cachedNpmCommand;
+    }
+  }
+
+  throw new Error("ไม่พบ npm.cmd สำหรับรัน build กรุณาติดตั้ง Node.js จาก https://nodejs.org/en/download แล้วเลือกติดตั้ง npm ด้วย");
 }
 
 function ensureInstalled() {
