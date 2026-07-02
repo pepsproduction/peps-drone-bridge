@@ -1,0 +1,36 @@
+{
+  "name": "peps-drone-bridge",
+  "version": "0.1.0-local",
+  "private": true,
+  "type": "module",
+  "description": "PEPS LIVE Drone RTMP Bridge local test build",
+  "workspaces": [
+    "frontend",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,frontend -c yellow,cyan \"npm run dev -w server\" \"npm run dev -w frontend\"",
+    "start": "node server/dist/index.js",
+    "local": "npm run build && npm run start",
+    "lint": "eslint .",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w frontend",
+    "test": "npm run test -w server && npm run test -w frontend",
+    "build": "npm run build -w server && npm run build -w frontend",
+    "test:bridge": "npm run test:bridge -w server",
+    "setup:mediamtx": "tsx scripts/setup-mediamtx.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "concurrently": "^9.2.1",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.4",
+    "vitest": "^4.0.8"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

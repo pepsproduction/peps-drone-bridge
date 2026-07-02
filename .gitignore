@@ -1,0 +1,17 @@
+node_modules/
+dist/
+frontend/dist/
+server/dist/
+*.tsbuildinfo
+logs/
+config/*.json
+config/*.pid
+config/mediamtx.yml
+mediamtx/*.exe
+mediamtx/*.zip
+mediamtx/_download/
+auto.crt
+auto.key
+.env
+.DS_Store
+Thumbs.db
